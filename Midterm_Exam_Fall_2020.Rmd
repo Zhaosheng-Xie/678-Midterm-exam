@@ -1,0 +1,236 @@
+---
+title: "Midterm Exam"
+author: "Zhaosheng Xie"
+date: "11/2/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Instruction
+
+This is your midterm exam that you are expected to work on it alone.  You may NOT  discuss any of the content of your exam with anyone except your instructor. This includes text, chat, email and other online forums.  We expect you to respect and follow the [GRS Academic and Professional Conduct Code](http://www.bu.edu/cas/files/2017/02/GRS-Academic-Conduct-Code-Final.pdf). 
+
+Although you may NOT ask anyone directly, you are allowed to use external resources such as R codes on the Internet.  If you do use someone's code, please make sure you clearly cite the origin of the code.
+
+When you finish, please compile and submit the PDF file and the link to the GitHub repository that contains the entire analysis.
+
+
+## Introduction
+
+In this exam, you will act as both the client and the consultant for the data that you collected in the data collection exercise (20pts).  Please note that you are not allowed to change the data.  The goal of this exam is to demonstrate your ability to perform the statistical analysis that you learned in this class so far.  It is important to note that significance of the analysis is not the main goal of this exam but the focus is on the appropriateness of your approaches.
+
+### Data Description (10pts)
+
+Please explain what your data is about and what the comparison of interest is.  In the process, please make sure to demonstrate that you can load your data properly into R.
+
+Background:
+    In my undergraduate university’ dining hall, the only one way for students to pay their food was to use student card. But dining hall published a new way last year, which is to use cellphone. Students can bind their student ID to wechat wallet and use wechat payment. 
+
+Data description:
+    In my data, I observe 4 groups, which are 4 food windows. For each window, I observe 10 students whose attributes are divided into 3. 
+    The first is cad/phone column. 0 represents student card and 1 represents cellphone.
+    In gender column, 0 represents female and 1 represents male.
+    Last is backpack column. 0 represents students do not have a backpack when they order food and 1 is otherwise. In this case, I consider that wearing backpack means students just finished their class and went for a lunch. Without backpack means students did not have classes. Why this is important? Because students must use their ID card to sign in at classroom. In conclusion, students who just finished classes must carry ID card and other students' condition is not for sure. I assume every student carries their mobile phone.
+
+Comparison of interest:
+    1. I want to find which way students prefer.
+    2. Whether genders and wearing backpack affect students' decision of pattern of payment.
+
+
+```{r }
+library(readr)
+Data <- read_csv("Data from studentes.csv")
+head(Data, n = 10)
+```
+
+### EDA (10pts)
+
+Please create one (maybe two) figure(s) that highlights the contrast of interest.  Make sure you think ahead and match your figure with the analysis.  For example, if your model requires you to take a log, make sure you take log in the figure as well.
+
+```{r }
+## data cleaning
+# change "1" and "0" into character
+Data1 <- Data # to keep original data
+for (i in 1:40){
+  Data1$`card/phone`[i] <- ifelse(Data1$`card/phone`[i]==1, "phone", "card")
+  Data1$gender[i] <- ifelse(Data1$gender[i]==1, "M", "F")
+  Data1$backpack[i] <- ifelse(Data1$backpack[i]==1, "Wear", "Not wear")
+}
+# rename columns
+colnames(Data1)[2] <- "window"
+colnames(Data1)[3] <- "pay_way"
+head(Data1)
+Data2 <- Data
+colnames(Data2)[2] <- "window"
+colnames(Data2)[3] <- "pay_way"
+```
+
+
+```{r}
+# pay way frequency
+library(funModeling)
+Pr.pay_way <- freq(Data1$pay_way)
+Pr.pay_way
+## Comparison of 2 payment ways 
+# different gender
+library(tidyverse)
+library(ggplot2)
+ggplot(data = Data1) +
+  geom_bar(mapping = aes(x = pay_way, fill = gender)) +
+  labs(x = "Payment method", y = "Number",
+       title = "Comparison of 2 payment method in different gender")
+
+# different backpack condition
+ggplot(data = Data1) +
+  geom_bar(mapping = aes(x = pay_way, fill = backpack)) +
+  labs(x = "Payment method", y = "Number",
+       title = "Comparison of 2 payment method in different backpack")
+
+## Comparison of 4 windows using facet function
+# different gender
+ggplot(data = Data1) +
+  geom_bar(mapping = aes(x = pay_way, fill = gender)) +   
+  facet_wrap(~ window, nrow = 2) +
+  # scale_y_continous(limits = c(0, 10), breaks = seq(0, 10, 1)) +
+  labs(x = "Payment method", y = "Number",
+       title = "Comparison of 2 payment method of each window in different gender") 
+
+
+# different backpack condition
+ggplot(data = Data1) +
+  geom_bar(mapping = aes(x = pay_way, fill = backpack)) +   
+  facet_wrap(~ window, nrow = 2) +
+  labs(x = "Payment method", y = "Number",
+       title = "Comparison of 2 payment method of each window in different backpack")
+
+```
+
+
+### Power Analysis (10pts)
+
+Please perform power analysis on the project.  Use 80% power, the sample size you used and infer the level of effect size you will be able to detect.  Discuss whether your sample size was enough for the problem at hand.  Please note that method of power analysis should match the analysis.  Also, please clearly state why you should NOT use the effect size from the fitted model.
+
+```{r }
+library(pwr)
+# f2 test
+pwr.f2.test(u=2,v=37,sig.level=0.05,power=0.80)
+
+# sample size
+# According to the sample's result, Pr(card)=32/40=0.8. 
+# So I believe the true Pr(card) is around 0.8.
+n <- 0.8*(1-0.8)/0.05^2
+
+```
+In this test, I use pwr.f2.test() function to do power analysis, because I want to fit it in GLM. System calculates f2 = 0.2614587. Small effect is around 0.02; middle effect is around 0.15; big effect is around 0.35. 0.26 is between 0.15 and 0.35.
+My sample size is 40 and suggested size is 64. I think it can answer the first question, which payment method students prefer. But as for prediction, it is not enough.
+Any power analysis or sample size calculations is conditional on an assumed effect size, and this is something that is the target of the study and is thus never known ahead of time.
+
+
+
+### Modeling (10pts)
+
+Please pick a regression model that best fits your data and fit your model.  Please make sure you describe why you decide to choose the model. Also, if you are using GLM, make sure you explain your choice of link function as well.
+```{r }
+library(rstanarm)
+set.seed(100)
+M1 <- stan_glm(pay_way ~ gender + backpack, data = Data2,
+               family=binomial(link="logit"), refresh = 0)
+summary(M1)
+```
+I set link = "logit" because I want to use logistic regression in this case. 
+Why logistic regression? 
+Since I want to know which way students like.There are just 2 ways and students should choose 1 of them. Outcome is binary outcome.
+
+### Validation (10pts)
+
+Please perform a necessary validation and argue why your choice of the model is appropriate.  
+
+```{r }
+library(rstanarm)
+library(bayesplot)
+library(arm)
+# PPC distributions
+post_M1 = posterior_predict(M1,draws=1000) 
+ppc_dens_overlay(post_M1[1:100,], y=Data2$pay_way)
+# binned residual plot 
+binnedplot(fitted(M1), resid(M1))
+# residual plot 
+plot(c(0.5,1), c(-1,1), xlab="Estimated Pr (card)", ylab="Observed - estimated", 
+     type="n", main="Residual plot", mgp=c(2,.5,0)) 
+abline(0,0, col="gray", lwd=.5) 
+points(fitted(M1), Data2$pay_way-fitted(M1), pch=20, cex=.2)
+# error rate
+error_rate <- mean((fitted(M1)>0.5 & Data2$pay_way==0) | (fitted(M1)<0.5 & Data2$pay_way==1)) 
+error_rate
+# if use linear model
+M2 <- stan_glm(pay_way ~ gender + backpack, data = Data2, refresh = 0)
+print(M2)
+post_M2 = posterior_predict(M2,draws=1000) 
+ppc_dens_overlay(post_M2[1:100,], y=Data2$pay_way)
+# LOO
+loo(M1)
+loo(M2)
+
+```
+
+
+The LOO estimated log score (elpd_loo) for the second model(M2) is lower than first model(M1).
+
+
+### Inference (10pts)
+
+Based on the result so far please perform statistical inference to compare the comparison of interest.
+
+```{r }
+# Pr(card)=invlogit(0.8 + 0.4*gender + 0.8*backpack)
+# Predict Pr(card) of female without backpack
+pre1 <- data.frame(gender=0, backpack=0) 
+epred1 <- invlogit(posterior_linpred(M1, newdata = pre1))
+mean(epred1)
+# Predict Pr(card) of female with backpack
+pre2 <- data.frame(gender=0, backpack=1) 
+epred2 <- invlogit(posterior_linpred(M1, newdata = pre2))
+mean(epred2)
+# Predict Pr(card) of male without backpack
+pre3 <- data.frame(gender=1, backpack=0) 
+epred3 <- invlogit(posterior_linpred(M1, newdata = pre3))
+mean(epred3)
+# Predict Pr(card) of male with backpack
+pre4 <- data.frame(gender=1, backpack=1) 
+epred4 <- invlogit(posterior_linpred(M1, newdata = pre4))
+mean(epred4)
+
+```
+
+
+### Discussion (10pts)
+
+Please clearly state your conclusion and the implication of the result.
+
+  From the result, most people prefer to use mobile phone as their payment method. 
+  Gender and backpack will affect Pr(card), but not too much. 
+  As for gender, when other condition does not change, Pr(card|male) is around 10% higher than Pr(card|female). The main reason, by my observation, is probably that female like to decorate their student ID card. I saw these cards, which female used, with different stickers and cutting ferrules. Since the card is beautiful, use it. On the other hand, male's card is normal.    
+  As for backpack, when other condition does not change, Pr(card|with backpack) is around 10% higher than Pr(card|without backpack). The first reason, which I mentioned at beginning, is if students just finished classes, they must carry their ID card. The second reason may be the only way of entering library and laboratory is to use ID card. These students may go to library after finishing lunch. So they also carried ID card.
+  
+  
+### Limitations and future opportunity. (10pts)
+
+Please list concerns about your analysis.  Also, please state how you might go about fixing the problem in your future study.
+Concerns:
+1. The sample size is too small. I observed 40 students. But my university has more than 20000 students.
+2. There is a big difference in proportion between female and male. Generally speaking, 50:50 is good. But my university is famous for the amazing male-female ratio, which is 7:1. So, it's hard to get good sample.
+3. You may have noticed that I did not use multilevel regression. Although I divided my observation into 4 groups, which are 4 food windows, these 4 windows have no difference in payment method. The differences are price, popularity, and time of offering food.
+4. I did not have deep understanding of the result of power analysis and validation part.
+
+Future:
+1. Using internet is an option. Website "CSDN" has many good understanding.
+2. The most fast way to get a framework of new knowledge is to talk with my peers. I like this way very much.
+Since this exam is not allowed to talk to each other, when I met problems, Internet and PPT are my helpers.
+3. Do project with classmates as much as I can. That really helps a lot.
+
+### Comments or questions
+If you have any comments or questions, please write them here.
+
